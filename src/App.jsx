@@ -84,22 +84,28 @@ ${savingsGap > 0 ? "3. A one-line savings nudge — gentle, not financial-advice
 
 Tone: romantic but not saccharine. Smart. Like a friend who knows London really well and genuinely wants the night to be good. Keep it under 120 words total. No headers, just flowing paragraphs.`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  const data = await response.json();
-  return data.content[0].text;
+  console.log("VITE_ANTHROPIC_API_KEY:", import.meta.env.VITE_ANTHROPIC_API_KEY);
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`);
+    return data.content[0].text;
+  } catch (err) {
+    throw new Error(err.message || "Unknown error");
+  }
 }
 
 // ── Screens ──────────────────────────────────────────────────────────────────
@@ -264,6 +270,7 @@ function Preferences({ userName, partnerName, tier, onComplete }) {
 function Recommendation({ tier, prefs1, prefs2, amount1, amount2, onMiniGame }) {
   const [rec, setRec] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const disagreement = Object.keys(prefs1).some(k => prefs1[k] !== prefs2[k]);
   const lowerAmount = Math.min(amount1, amount2);
   const higherAmount = Math.max(amount1, amount2);
@@ -272,10 +279,9 @@ function Recommendation({ tier, prefs1, prefs2, amount1, amount2, onMiniGame }) 
 
   useEffect(() => {
     if (!disagreement) {
-      getRecommendation(tier, prefs1, savingsGap).then(r => {
-        setRec(r);
-        setLoading(false);
-      });
+      getRecommendation(tier, prefs1, savingsGap)
+        .then(r => { setRec(r); setLoading(false); })
+        .catch(err => { setError(err.message); setLoading(false); });
     } else {
       setLoading(false);
     }
@@ -303,6 +309,11 @@ function Recommendation({ tier, prefs1, prefs2, amount1, amount2, onMiniGame }) 
           <div style={styles.spinner} />
           <p style={{ ...styles.caption, marginTop: 16 }}>Finding your perfect night...</p>
         </div>
+      ) : error ? (
+        <div style={styles.card}>
+          <p style={{ ...styles.label, color: "#e05c5c" }}>Something went wrong</p>
+          <p style={{ ...styles.body, marginTop: 12, color: COLORS.muted }}>{error}</p>
+        </div>
       ) : (
         <div style={styles.card}>
           <p style={{ ...styles.label, color: COLORS.amber }}>Tonight's recommendation</p>
@@ -329,6 +340,7 @@ function MiniGame({ tier, prefs, amount1, amount2, onResult }) {
   const [winner, setWinner] = useState(null);
   const [rec, setRec] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const nextTierThreshold = tier === "low" ? 30 : tier === "mid" ? 80 : null;
   const lowerAmount = Math.min(amount1, amount2);
   const savingsGap = nextTierThreshold ? Math.max(0, nextTierThreshold - lowerAmount) : 0;
@@ -350,10 +362,9 @@ function MiniGame({ tier, prefs, amount1, amount2, onResult }) {
     setWinner(result);
     setPhase("result");
     setLoading(true);
-    getRecommendation(tier, prefs, savingsGap).then(r => {
-      setRec(r);
-      setLoading(false);
-    });
+    getRecommendation(tier, prefs, savingsGap)
+      .then(r => { setRec(r); setLoading(false); })
+      .catch(err => { setError(err.message); setLoading(false); });
   }
 
   if (phase === "intro") {
@@ -409,6 +420,11 @@ function MiniGame({ tier, prefs, amount1, amount2, onResult }) {
         <div style={{ textAlign: "center" }}>
           <div style={styles.spinner} />
           <p style={{ ...styles.caption, marginTop: 16 }}>Settling the matter...</p>
+        </div>
+      ) : error ? (
+        <div style={styles.card}>
+          <p style={{ ...styles.label, color: "#e05c5c" }}>Something went wrong</p>
+          <p style={{ ...styles.body, marginTop: 12, color: COLORS.muted }}>{error}</p>
         </div>
       ) : (
         <div style={styles.card}>
