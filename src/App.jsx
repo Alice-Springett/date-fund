@@ -84,13 +84,15 @@ ${savingsGap > 0 ? "3. A one-line savings nudge — gentle, not financial-advice
 
 Tone: romantic but not saccharine. Smart. Like a friend who knows London really well and genuinely wants the night to be good. Keep it under 120 words total. No headers, just flowing paragraphs.`;
 
-  console.log("VITE_ANTHROPIC_API_KEY:", import.meta.env.VITE_ANTHROPIC_API_KEY);
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  console.log("VITE_ANTHROPIC_API_KEY:", apiKey);
+  if (!apiKey) throw new Error("API key not found — set VITE_ANTHROPIC_API_KEY in Cloudflare Pages environment variables");
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
       },
